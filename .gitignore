@@ -1,5 +1,13 @@
+# Node
 node_modules/
 npm-debug.log*
 yarn-error.log*
+
+# Бэкапы
+.backup_*
+*.bak_*
+*.broken
+
+# ОС
 .DS_Store
 Thumbs.db
