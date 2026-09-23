@@ -233,7 +233,6 @@
         <button class="admin-tab" onclick="switchAdminTab('orders',this)">Заказы</button>
         <button class="admin-tab" onclick="switchAdminTab('contacts',this)">Контакты</button>
         <button class="admin-tab" onclick="switchAdminTab('users',this)">Пользователи</button>
-        <button class="admin-tab" onclick="switchAdminTab('chats',this)">Чаты <span id="admin-chat-badge" style="display:none;background:#8b0000;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:4px;"></span></button>
     </div>
 
     <div class="admin-section active" id="admin-products">
@@ -419,8 +418,6 @@
             <tbody id="admin-users-body"></tbody>
         </table>
     </div>
-
-    
 </section>
 
 <!-- МОДАЛЬНОЕ ОКНО -->
@@ -445,41 +442,6 @@
         </div>
     </div>
 </div>
-
-
-<!-- ЧАТЫ (вынесены из admin-page для полной ширины) -->
-<div class="admin-section" id="admin-chats">
-        <div class="admin-chats-wrap">
-            <div class="admin-chats-list" id="admin-chats-list">
-                <div class="admin-chats-list__head">
-                    <h3>Диалоги</h3>
-                    <button class="btn btn-small" onclick="loadAdminChats()">↻</button>
-                </div>
-                <div id="admin-chats-list-body"></div>
-            </div>
-            <div class="admin-chats-room" id="admin-chats-room">
-                <div class="admin-chats-room__empty" id="admin-chats-empty">
-                    <div style="font-size:56px;opacity:.3;">💬</div>
-                    <p>Выберите диалог слева</p>
-                </div>
-                <div class="admin-chats-room__active" id="admin-chats-active" style="display:none;">
-                    <div class="admin-chats-room__head">
-                        <div>
-                            <div class="admin-chats-room__name" id="admin-chat-name">—</div>
-                            <div class="admin-chats-room__status" id="admin-chat-status">клиент</div>
-                        </div>
-                    </div>
-                    <div class="admin-chats-room__body" id="admin-chat-body"></div>
-                    <form class="admin-chats-room__form" id="admin-chat-form" autocomplete="off">
-                        <input type="text" id="admin-chat-input" placeholder="Введите сообщение..." autocomplete="off">
-                        <button type="submit" aria-label="Отправить">
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
 
 <footer class="site-footer">
     <div class="footer-inner">
@@ -552,7 +514,7 @@
             <button class="chat-head-close" onclick="toggleChat(false)">✕</button>
         </div>
         <div class="chat-body" id="chat-body"></div>
-        <form class="chat-form" id="chat-form" autocomplete="off">
+        <form class="chat-form" id="chat-form" onsubmit="sendChatMessage(event)">
             <input type="text" id="chat-input" placeholder="Напишите сообщение..." autocomplete="off">
             <button type="submit" aria-label="Отправить">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>

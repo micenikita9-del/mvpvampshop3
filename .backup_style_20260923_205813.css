@@ -1796,6 +1796,9 @@ footer { padding: 40px; text-align: center; border-top: 1px solid #ddd; backgrou
   }
 }
 
+/* ============================================================
+   ADMIN CHAT — FINAL v5 (вынесен из admin-page)
+   ============================================================ */
 #admin-chats.admin-section {
   display: none;
   width: 100%;
@@ -1980,6 +1983,12 @@ footer { padding: 40px; text-align: center; border-top: 1px solid #ddd; backgrou
   }
   #admin-chats .admin-chats-list { border-right: 0; border-bottom: 1px solid #ececec; }
 }
+/* === ADMIN CHAT — FINAL v5 (end) === */
+
+/* ============================================================
+   ADMIN CHAT — FINAL v6 (работает через body.admin-chats-active)
+   ============================================================ */
+
 /* Когда открыта вкладка чатов — снимаем ограничения у admin-page */
 body.admin-chats-active .admin-page {
   max-width: 100% !important;
@@ -2160,6 +2169,8 @@ body.admin-chats-active .admin-page > h2 {
   font-size: 10px; opacity: .6;
   margin-top: 4px; display: block; text-align: right;
 }
+/* === ADMIN CHAT — FINAL v6 (end) === */
+
 /* ============================================================
    MOBILE OPTIMIZATION v3
    ============================================================ */
@@ -2452,229 +2463,3 @@ body.admin-chats-active .admin-page > h2 {
   .product-card img { height: 220px !important; }
 }
 /* === MOBILE OPTIMIZATION v3 (end) === */
-
-/* ============================================================
-   ADMIN CHAT — FINAL v7
-   Работает через body.admin-chats-active
-   ============================================================ */
-
-/* 1. Когда открыта вкладка чатов — снимаем ограничения у admin-page */
-body.admin-chats-active .admin-page {
-  max-width: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* 2. Скрываем всё лишнее в шапке админки, когда открыт чат */
-body.admin-chats-active .admin-page > .back-btn { display: none !important; }
-body.admin-chats-active .admin-page > h2      { display: none !important; }
-
-/* 3. Табы на вкладке чатов — оставляем видимыми, но без отступа сверху */
-body.admin-chats-active .admin-page > .admin-tabs {
-  margin: 12px 20px 16px !important;
-  padding: 0 !important;
-}
-
-/* 4. Сама секция чата — во всю ширину, занимает всё доступное пространство */
-body.admin-chats-active #admin-chats.admin-section {
-  display: block !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  padding: 0 20px 30px !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
-}
-
-#admin-chats .admin-chats-wrap {
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 0;
-  width: 100%;
-  height: calc(100vh - 220px);
-  min-height: 520px;
-  max-height: 900px;
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0,0,0,.05);
-  box-sizing: border-box;
-}
-
-#admin-chats .admin-chats-list {
-  background: #fafafa;
-  border-right: 1px solid #ececec;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-#admin-chats .admin-chats-list__head {
-  padding: 14px 16px;
-  border-bottom: 1px solid #ececec;
-  background: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-}
-#admin-chats .admin-chats-list__head h3 {
-  font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
-  font-weight: 700; margin: 0; color: #111;
-}
-#admin-chats-list-body {
-  flex: 1; overflow-y: auto; min-height: 0;
-}
-
-#admin-chats .admin-chat-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  transition: background .15s;
-}
-#admin-chats .admin-chat-item:hover { background: #f3f3f3; }
-#admin-chats .admin-chat-item.active { background: #111; color: #fff; }
-#admin-chats .admin-chat-item.active .admin-chat-item__name { color: #fff; }
-#admin-chats .admin-chat-item.active .admin-chat-item__preview { color: #cfcfcf; }
-#admin-chats .admin-chat-item__main { flex: 1; min-width: 0; }
-#admin-chats .admin-chat-item__name {
-  font-size: 14px; font-weight: 600; margin-bottom: 3px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-#admin-chats .admin-chat-item__preview {
-  font-size: 12px; color: #888;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-#admin-chats .admin-chat-item__badge {
-  background: #8b0000; color: #fff;
-  font-size: 11px; font-weight: 700;
-  min-width: 20px; height: 20px;
-  padding: 0 6px; line-height: 20px;
-  text-align: center; border-radius: 999px; flex-shrink: 0;
-}
-
-#admin-chats .admin-chats-room {
-  display: flex; flex-direction: column;
-  min-width: 0; background: #fff; overflow: hidden;
-}
-#admin-chats .admin-chats-room__empty {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  color: #bbb; gap: 12px; font-size: 14px;
-}
-#admin-chats .admin-chats-room__empty p { margin: 0; }
-
-#admin-chats .admin-chats-room__active {
-  flex: 1; display: flex; flex-direction: column; min-height: 0;
-}
-#admin-chats .admin-chats-room__head {
-  padding: 14px 20px; border-bottom: 1px solid #ececec;
-  background: #fff; flex-shrink: 0;
-}
-#admin-chats .admin-chats-room__name { font-size: 15px; font-weight: 600; }
-#admin-chats .admin-chats-room__status { font-size: 12px; color: #2d7a2d; margin-top: 2px; }
-
-#admin-chats .admin-chats-room__body {
-  flex: 1; padding: 18px 20px; overflow-y: auto;
-  background: #f7f7f7; display: flex; flex-direction: column;
-  gap: 10px; min-height: 0;
-}
-#admin-chats .admin-chats-room__form {
-  display: flex; gap: 8px;
-  padding: 12px 16px; border-top: 1px solid #ececec;
-  background: #fff; flex-shrink: 0;
-}
-#admin-chats .admin-chats-room__form input {
-  flex: 1; border: 1px solid #e0e0e0;
-  border-radius: 999px; padding: 11px 16px;
-  font-family: inherit; font-size: 14px; background: #fafafa;
-}
-#admin-chats .admin-chats-room__form input:focus {
-  outline: none; background: #fff; border-color: #111;
-}
-#admin-chats .admin-chats-room__form button {
-  width: 42px; height: 42px; border-radius: 50%;
-  background: #111; color: #fff; border: 0;
-  cursor: pointer; display: inline-flex;
-  align-items: center; justify-content: center;
-  transition: background .2s; flex-shrink: 0;
-}
-#admin-chats .admin-chats-room__form button:hover { background: #8b0000; }
-
-#admin-chats .admin-chats-empty {
-  color: #999; font-size: 13px;
-  padding: 30px 20px; text-align: center;
-}
-
-#admin-chats .chat-msg {
-  max-width: 70%; padding: 9px 13px;
-  border-radius: 12px; font-size: 14px;
-  line-height: 1.5; word-wrap: break-word;
-}
-#admin-chats .chat-msg--me {
-  align-self: flex-end; background: #111; color: #fff;
-  border-bottom-right-radius: 3px;
-}
-#admin-chats .chat-msg--them {
-  align-self: flex-start; background: #fff; color: #111;
-  border: 1px solid #e5e5e5; border-bottom-left-radius: 3px;
-}
-#admin-chats .chat-msg__author {
-  font-size: 11px; font-weight: 700;
-  opacity: .7; margin-bottom: 3px; letter-spacing: .3px;
-}
-#admin-chats .chat-msg--me .chat-msg__author { text-align: right; color: #fff; }
-#admin-chats .chat-msg--them .chat-msg__author { text-align: left; color: #8b0000; }
-#admin-chats .chat-msg__time {
-  font-size: 10px; opacity: .6;
-  margin-top: 4px; display: block; text-align: right;
-}
-
-/* 5. Мобильный админ-чат */
-@media (max-width: 800px) {
-  body.admin-chats-active .admin-page { padding: 8px !important; }
-  body.admin-chats-active .admin-page > .admin-tabs { margin: 8px 0 10px !important; }
-  body.admin-chats-active #admin-chats.admin-section { padding: 0 !important; }
-  #admin-chats .admin-chats-wrap {
-    grid-template-columns: 1fr !important;
-    grid-template-rows: 200px 1fr !important;
-    height: calc(100vh - 190px) !important;
-    min-height: 500px !important;
-  }
-  #admin-chats .admin-chats-list { border-right: 0 !important; border-bottom: 1px solid #ececec !important; }
-  #admin-chats .admin-chats-room__body { padding: 14px !important; }
-  #admin-chats .chat-msg { max-width: 85% !important; }
-}
-/* === ADMIN CHAT — FINAL v7 (end) === */
-
-/* === CHAT EMPTY COMPACT (start) === */
-/* Плашка "Выберите диалог слева" — компактная, не растягивается */
-#admin-chats .admin-chats-room__empty {
-  flex: 0 0 auto !important;
-  padding: 40px 20px !important;
-  min-height: auto !important;
-  max-height: 240px !important;
-  gap: 8px !important;
-  justify-content: center !important;
-  border-bottom: 1px solid #f0f0f0 !important;
-}
-#admin-chats .admin-chats-room__empty > div:first-child {
-  font-size: 32px !important;
-  opacity: .35 !important;
-}
-#admin-chats .admin-chats-room__empty p {
-  font-size: 13px !important;
-  color: #aaa !important;
-}
-/* Если диалог выбран — заглушка скрывается, чат занимает всё */
-#admin-chats .admin-chats-room__active ~ .admin-chats-room__empty,
-#admin-chats .admin-chats-room__empty[style*="display: none"] {
-  display: none !important;
-}
-/* === CHAT EMPTY COMPACT (end) === */

@@ -623,21 +623,10 @@ async function openAdmin() {
 }
 function switchAdminTab(tab, btn) {
     document.querySelectorAll('.admin-tab').forEach(function(b) { b.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
+    btn.classList.add('active');
     document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
     const sec = document.getElementById('admin-' + tab);
     if (sec) sec.classList.add('active');
-
-    // Снимаем ограничения admin-page когда открыт чат
-    if (tab === 'chats') {
-        document.body.classList.add('admin-chats-active');
-    } else {
-        document.body.classList.remove('admin-chats-active');
-    }
-    // Подгружаем чаты при переходе
-    if (tab === 'chats' && typeof loadAdminChats === 'function') {
-        try { loadAdminChats(); } catch(e){}
-    }
 }
 function renderAdminProducts() {
     const tbody = document.getElementById('admin-products-body');
@@ -2301,72 +2290,3 @@ window.renderChatMsg = renderChatMsg;
   window.bindChatForms = bind;
 })();
 /* === CHAT SEND — FINAL (end) === */
-
-
-/* === ADMIN CHATS — класс на body для снятия ограничений === */
-(function(){
-  if (typeof window.switchAdminTab === 'function' && !window.__switchAdminTabV6){
-    const orig = window.switchAdminTab;
-    window.switchAdminTab = function(tab, btn){
-      const r = orig.apply(this, arguments);
-      if (tab === 'chats'){
-        document.body.classList.add('admin-chats-active');
-      } else {
-        document.body.classList.remove('admin-chats-active');
-      }
-      return r;
-    };
-    window.__switchAdminTabV6 = true;
-  }
-})();
-window.__adminChatsClassToggle = true;
-
-/* === Убираем "Войдите" для админа в его чате === */
-(function(){
-  const origLoadMyChat = window.loadMyChat;
-  if (typeof origLoadMyChat === 'function' && !window.__loadMyChatV6){
-    window.loadMyChat = async function(){
-      const r = await origLoadMyChat.apply(this, arguments);
-      return r;
-    };
-    window.__loadMyChatV6 = true;
-  }
-})();
-
-/* === В чате админки не показываем "chat-widget--locked" === */
-(function(){
-  const origToggle = window.toggleChat;
-  if (typeof origToggle === 'function' && !window.__toggleChatV6){
-    window.toggleChat = async function(force){
-      const r = await origToggle.apply(this, arguments);
-      // если это админ — никогда не ставим locked
-      const widget = document.getElementById('chat-widget');
-      if (widget && currentUser && currentUser.role === 'admin'){
-        widget.classList.remove('chat-widget--locked');
-      }
-      return r;
-    };
-    window.__toggleChatV6 = true;
-  }
-})();
-
-/* === Скрываем .chat-widget--locked когда пользователь залогинен === */
-setInterval(function(){
-  const widget = document.getElementById('chat-widget');
-  if (!widget) return;
-  if (authToken && currentUser){
-    widget.classList.remove('chat-widget--locked');
-  }
-}, 1000);
-
-/* Снимаем admin-chats-active при уходе с админки */
-(function(){
-  if (typeof window.showCatalog === 'function' && !window.__forceAdminChatsOff){
-    const orig = window.showCatalog;
-    window.showCatalog = function(){
-      document.body.classList.remove('admin-chats-active');
-      return orig.apply(this, arguments);
-    };
-    window.__forceAdminChatsOff = true;
-  }
-})();

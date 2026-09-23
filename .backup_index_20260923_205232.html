@@ -420,35 +420,7 @@
         </table>
     </div>
 
-    
-</section>
-
-<!-- МОДАЛЬНОЕ ОКНО -->
-<div class="modal-overlay" id="auth-modal">
-    <div class="modal">
-        <button class="modal-close" onclick="closeAuthModal()">×</button>
-        <h2 id="auth-title">Вход</h2>
-        <div id="login-form">
-            <div class="form-group"><label>Email или логин</label><input type="text" id="login-email" placeholder="admin"></div>
-            <div class="form-group"><label>Пароль</label><input type="password" id="login-password"></div>
-            <div class="error-msg" id="login-error"></div>
-            <button class="btn" onclick="doLogin()">Войти</button>
-            <div class="switch-form">Нет аккаунта? <a onclick="switchAuthForm('register')">Регистрация</a></div>
-        </div>
-        <div id="register-form" style="display:none;">
-            <div class="form-group"><label>Имя</label><input type="text" id="reg-name"></div>
-            <div class="form-group"><label>Email</label><input type="email" id="reg-email"></div>
-            <div class="form-group"><label>Пароль (мин. 6)</label><input type="password" id="reg-password"></div>
-            <div class="error-msg" id="reg-error"></div>
-            <button class="btn" onclick="doRegister()">Зарегистрироваться</button>
-            <div class="switch-form">Уже есть аккаунт? <a onclick="switchAuthForm('login')">Войти</a></div>
-        </div>
-    </div>
-</div>
-
-
-<!-- ЧАТЫ (вынесены из admin-page для полной ширины) -->
-<div class="admin-section" id="admin-chats">
+    <div class="admin-section" id="admin-chats">
         <div class="admin-chats-wrap">
             <div class="admin-chats-list" id="admin-chats-list">
                 <div class="admin-chats-list__head">
@@ -480,6 +452,30 @@
             </div>
         </div>
     </div>
+</section>
+
+<!-- МОДАЛЬНОЕ ОКНО -->
+<div class="modal-overlay" id="auth-modal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeAuthModal()">×</button>
+        <h2 id="auth-title">Вход</h2>
+        <div id="login-form">
+            <div class="form-group"><label>Email или логин</label><input type="text" id="login-email" placeholder="admin"></div>
+            <div class="form-group"><label>Пароль</label><input type="password" id="login-password"></div>
+            <div class="error-msg" id="login-error"></div>
+            <button class="btn" onclick="doLogin()">Войти</button>
+            <div class="switch-form">Нет аккаунта? <a onclick="switchAuthForm('register')">Регистрация</a></div>
+        </div>
+        <div id="register-form" style="display:none;">
+            <div class="form-group"><label>Имя</label><input type="text" id="reg-name"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="reg-email"></div>
+            <div class="form-group"><label>Пароль (мин. 6)</label><input type="password" id="reg-password"></div>
+            <div class="error-msg" id="reg-error"></div>
+            <button class="btn" onclick="doRegister()">Зарегистрироваться</button>
+            <div class="switch-form">Уже есть аккаунт? <a onclick="switchAuthForm('login')">Войти</a></div>
+        </div>
+    </div>
+</div>
 
 <footer class="site-footer">
     <div class="footer-inner">

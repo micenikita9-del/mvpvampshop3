@@ -623,21 +623,10 @@ async function openAdmin() {
 }
 function switchAdminTab(tab, btn) {
     document.querySelectorAll('.admin-tab').forEach(function(b) { b.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
+    btn.classList.add('active');
     document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
     const sec = document.getElementById('admin-' + tab);
     if (sec) sec.classList.add('active');
-
-    // Снимаем ограничения admin-page когда открыт чат
-    if (tab === 'chats') {
-        document.body.classList.add('admin-chats-active');
-    } else {
-        document.body.classList.remove('admin-chats-active');
-    }
-    // Подгружаем чаты при переходе
-    if (tab === 'chats' && typeof loadAdminChats === 'function') {
-        try { loadAdminChats(); } catch(e){}
-    }
 }
 function renderAdminProducts() {
     const tbody = document.getElementById('admin-products-body');
@@ -1944,6 +1933,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 window.loadAdminChats = loadAdminChats;
 window.openAdminChat = openAdminChat;
+window.sendAdminChatMessage = sendAdminChatMessage;
 /* === ADMIN CHATS (end) === */
 
 /* === CHAT FIX (start) === */
@@ -2077,7 +2067,40 @@ function playChatBeep(){
 }
 
 /* === Отправка сообщения (клиент) === */
+window.sendChatMessage = async function(ev){
+  ev.preventDefault();
+  const input = document.getElementById('chat-input');
+  if (!input || !chatState.chatId) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    const msg = await api('/chats/' + chatState.chatId + '/messages', {
+      method: 'POST',
+      body: JSON.stringify({ text: text })
+    });
+    // мгновенно добавляем в UI (не ждём SSE)
+    addChatMessageToUI(msg, 'user');
+  } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
+};
+
 /* === Отправка сообщения (админ) === */
+window.sendAdminChatMessage = async function(ev){
+  ev.preventDefault();
+  const input = document.getElementById('admin-chat-input');
+  if (!input || !adminChatState.activeChatId) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    const msg = await api('/chats/' + adminChatState.activeChatId + '/messages', {
+      method: 'POST',
+      body: JSON.stringify({ text: text })
+    });
+    addAdminChatMessageToUI(msg);
+  } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
+};
+
 /* === Обеспечиваем переподключение SSE при открытии чата === */
 (function(){
   // клиент
@@ -2179,194 +2202,3 @@ window.connectChatSSE = connectChatSSE;
 window.connectAdminChatSSE = connectAdminChatSSE;
 window.renderChatMsg = renderChatMsg;
 /* === CHAT FIX (end) === */
-
-/* === CHAT SEND — FINAL (start) === */
-(function(){
-  function getTextAndClear(inputId){
-    const el = document.getElementById(inputId);
-    if (!el) return null;
-    const text = (el.value || '').trim();
-    if (!text) return null;
-    el.value = '';
-    return text;
-  }
-
-  async function doSendClient(text){
-    if (!chatState.chatId) { try { await loadMyChat(); } catch(e){} }
-    if (!chatState.chatId) { showToast('Чат не найден', 'error'); return; }
-    try {
-      const msg = await api('/chats/' + chatState.chatId + '/messages', {
-        method: 'POST',
-        body: JSON.stringify({ text: text })
-      });
-      if (typeof addChatMessageToUI === 'function') addChatMessageToUI(msg, 'user');
-    } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
-  }
-
-  async function doSendAdmin(text){
-    if (!adminChatState.activeChatId) { showToast('Выберите диалог', 'error'); return; }
-    try {
-      const msg = await api('/chats/' + adminChatState.activeChatId + '/messages', {
-        method: 'POST',
-        body: JSON.stringify({ text: text })
-      });
-      if (typeof addAdminChatMessageToUI === 'function') addAdminChatMessageToUI(msg);
-    } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
-  }
-
-  // Единый обработчик submit — preventDefault ПЕРВЫМ делом
-  function onClientSubmit(e){
-    e.preventDefault();
-    e.stopPropagation();
-    const text = getTextAndClear('chat-input');
-    if (text) doSendClient(text);
-    return false;
-  }
-  function onAdminSubmit(e){
-    e.preventDefault();
-    e.stopPropagation();
-    const text = getTextAndClear('admin-chat-input');
-    if (text) doSendAdmin(text);
-    return false;
-  }
-
-  // Привязка
-  function bind(){
-    const cf = document.getElementById('chat-form');
-    if (cf && !cf.__chatBound){
-      cf.addEventListener('submit', onClientSubmit);
-      cf.__chatBound = true;
-      console.log('[chat] форма клиента привязана');
-    }
-    const af = document.getElementById('admin-chat-form') ||
-               document.querySelector('form.admin-chats-room__form');
-    if (af){
-      if (!af.id) af.id = 'admin-chat-form';
-      if (!af.__chatBound){
-        af.addEventListener('submit', onAdminSubmit);
-        af.__chatBound = true;
-        console.log('[chat] форма админа привязана');
-      }
-    }
-    // Enter в полях
-    const ci = document.getElementById('chat-input');
-    if (ci && !ci.__enterBound){
-      ci.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey){
-          e.preventDefault();
-          const text = getTextAndClear('chat-input');
-          if (text) doSendClient(text);
-        }
-      });
-      ci.__enterBound = true;
-    }
-    const ai = document.getElementById('admin-chat-input');
-    if (ai && !ai.__enterBound){
-      ai.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey){
-          e.preventDefault();
-          const text = getTextAndClear('admin-chat-input');
-          if (text) doSendAdmin(text);
-        }
-      });
-      ai.__enterBound = true;
-    }
-  }
-
-  // Экспорт (для onclick в HTML, если где-то остался)
-  window.sendChatMessage = function(ev){
-    if (ev && ev.preventDefault) ev.preventDefault();
-    const text = getTextAndClear('chat-input');
-    if (text) doSendClient(text);
-    return false;
-  };
-  window.sendAdminChatMessage = function(ev){
-    if (ev && ev.preventDefault) ev.preventDefault();
-    const text = getTextAndClear('admin-chat-input');
-    if (text) doSendAdmin(text);
-    return false;
-  };
-
-  // Привязываем сразу + периодически
-  document.addEventListener('DOMContentLoaded', function(){
-    bind();
-    setTimeout(bind, 300);
-    setTimeout(bind, 1000);
-    setTimeout(bind, 2500);
-  });
-
-  // Периодически (на случай, если формы появляются позже)
-  setInterval(bind, 3000);
-
-  window.bindChatForms = bind;
-})();
-/* === CHAT SEND — FINAL (end) === */
-
-
-/* === ADMIN CHATS — класс на body для снятия ограничений === */
-(function(){
-  if (typeof window.switchAdminTab === 'function' && !window.__switchAdminTabV6){
-    const orig = window.switchAdminTab;
-    window.switchAdminTab = function(tab, btn){
-      const r = orig.apply(this, arguments);
-      if (tab === 'chats'){
-        document.body.classList.add('admin-chats-active');
-      } else {
-        document.body.classList.remove('admin-chats-active');
-      }
-      return r;
-    };
-    window.__switchAdminTabV6 = true;
-  }
-})();
-window.__adminChatsClassToggle = true;
-
-/* === Убираем "Войдите" для админа в его чате === */
-(function(){
-  const origLoadMyChat = window.loadMyChat;
-  if (typeof origLoadMyChat === 'function' && !window.__loadMyChatV6){
-    window.loadMyChat = async function(){
-      const r = await origLoadMyChat.apply(this, arguments);
-      return r;
-    };
-    window.__loadMyChatV6 = true;
-  }
-})();
-
-/* === В чате админки не показываем "chat-widget--locked" === */
-(function(){
-  const origToggle = window.toggleChat;
-  if (typeof origToggle === 'function' && !window.__toggleChatV6){
-    window.toggleChat = async function(force){
-      const r = await origToggle.apply(this, arguments);
-      // если это админ — никогда не ставим locked
-      const widget = document.getElementById('chat-widget');
-      if (widget && currentUser && currentUser.role === 'admin'){
-        widget.classList.remove('chat-widget--locked');
-      }
-      return r;
-    };
-    window.__toggleChatV6 = true;
-  }
-})();
-
-/* === Скрываем .chat-widget--locked когда пользователь залогинен === */
-setInterval(function(){
-  const widget = document.getElementById('chat-widget');
-  if (!widget) return;
-  if (authToken && currentUser){
-    widget.classList.remove('chat-widget--locked');
-  }
-}, 1000);
-
-/* Снимаем admin-chats-active при уходе с админки */
-(function(){
-  if (typeof window.showCatalog === 'function' && !window.__forceAdminChatsOff){
-    const orig = window.showCatalog;
-    window.showCatalog = function(){
-      document.body.classList.remove('admin-chats-active');
-      return orig.apply(this, arguments);
-    };
-    window.__forceAdminChatsOff = true;
-  }
-})();

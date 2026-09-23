@@ -207,10 +207,10 @@
 </section>
 
 <!-- МОИ ЗАКАЗЫ -->
-<section class="cart-page my-orders-page" id="my-orders-view">
+<section class="cart-page" id="my-orders-view">
     <div class="back-btn" onclick="showCatalog()">← Назад в каталог</div>
-    <h2 class="my-orders-title">Мои заказы</h2>
-    <div id="my-orders-content" class="my-orders-list"></div>
+    <h2>Мои заказы</h2>
+    <div id="my-orders-content"></div>
 </section>
 
 <!-- КОНТАКТЫ -->
@@ -233,7 +233,6 @@
         <button class="admin-tab" onclick="switchAdminTab('orders',this)">Заказы</button>
         <button class="admin-tab" onclick="switchAdminTab('contacts',this)">Контакты</button>
         <button class="admin-tab" onclick="switchAdminTab('users',this)">Пользователи</button>
-        <button class="admin-tab" onclick="switchAdminTab('chats',this)">Чаты <span id="admin-chat-badge" style="display:none;background:#8b0000;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:4px;"></span></button>
     </div>
 
     <div class="admin-section active" id="admin-products">
@@ -419,8 +418,6 @@
             <tbody id="admin-users-body"></tbody>
         </table>
     </div>
-
-    
 </section>
 
 <!-- МОДАЛЬНОЕ ОКНО -->
@@ -446,121 +443,7 @@
     </div>
 </div>
 
-
-<!-- ЧАТЫ (вынесены из admin-page для полной ширины) -->
-<div class="admin-section" id="admin-chats">
-        <div class="admin-chats-wrap">
-            <div class="admin-chats-list" id="admin-chats-list">
-                <div class="admin-chats-list__head">
-                    <h3>Диалоги</h3>
-                    <button class="btn btn-small" onclick="loadAdminChats()">↻</button>
-                </div>
-                <div id="admin-chats-list-body"></div>
-            </div>
-            <div class="admin-chats-room" id="admin-chats-room">
-                <div class="admin-chats-room__empty" id="admin-chats-empty">
-                    <div style="font-size:56px;opacity:.3;">💬</div>
-                    <p>Выберите диалог слева</p>
-                </div>
-                <div class="admin-chats-room__active" id="admin-chats-active" style="display:none;">
-                    <div class="admin-chats-room__head">
-                        <div>
-                            <div class="admin-chats-room__name" id="admin-chat-name">—</div>
-                            <div class="admin-chats-room__status" id="admin-chat-status">клиент</div>
-                        </div>
-                    </div>
-                    <div class="admin-chats-room__body" id="admin-chat-body"></div>
-                    <form class="admin-chats-room__form" id="admin-chat-form" autocomplete="off">
-                        <input type="text" id="admin-chat-input" placeholder="Введите сообщение..." autocomplete="off">
-                        <button type="submit" aria-label="Отправить">
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-<footer class="site-footer">
-    <div class="footer-inner">
-        <div class="footer-col footer-col--brand">
-            <div class="footer-logo">VAMP SHMOT</div>
-            <p class="footer-desc">Кроссовки, одежда и аксессуары в Мариуполе. Бесплатная доставка по городу.</p>
-            <div class="footer-contacts">
-                <a href="tel:+79496143546">📞 +7 (949) 614-35-46</a>
-                <a href="https://t.me/yulya_lavrinenko" target="_blank" rel="noopener">✉️ @yulya_lavrinenko</a>
-                <span>📍 Мариуполь, Центральный рынок</span>
-            </div>
-        </div>
-        <div class="footer-col">
-            <h4>Покупателям</h4>
-            <ul>
-                <li><a onclick="openLegal('delivery')">Доставка и оплата</a></li>
-                <li><a onclick="openLegal('return')">Возврат и обмен</a></li>
-                <li><a onclick="showContacts()">Контакты</a></li>
-                <li><a onclick="openLegal('privacy')">Политика конфиденциальности</a></li>
-                <li><a onclick="openLegal('terms')">Пользовательское соглашение</a></li>
-            </ul>
-        </div>
-        <div class="footer-col">
-            <h4>Мы в сети</h4>
-            <div class="footer-social">
-                <a href="https://t.me/vamp_shmotmariupol" target="_blank" rel="noopener" class="soc-btn soc-btn--tg" aria-label="Telegram">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
-                    <span>Telegram</span>
-                </a>
-                <a href="https://t.me/vamp_shmotmariupol" target="_blank" rel="noopener" class="soc-btn soc-btn--tt" aria-label="TikTok">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
-                    <span>TikTok</span>
-                </a>
-            </div>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <span>© 2026 Vamp Shmot. Все права защищены.</span>
-        <div class="footer-bottom-links">
-            <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
-            <a onclick="openLegal('terms')">Пользовательское соглашение</a>
-            <a onclick="openLegal('return')">Правила возврата</a>
-        </div>
-    </div>
-</footer>
-
-<!-- Модалка юридических текстов -->
-<div class="legal-modal" id="legal-modal">
-    <div class="legal-modal__backdrop" onclick="closeLegal()"></div>
-    <div class="legal-modal__content">
-        <button class="legal-modal__close" onclick="closeLegal()">✕</button>
-        <h2 id="legal-title"></h2>
-        <div id="legal-body"></div>
-    </div>
-</div>
-
-<!-- Плавающий чат с продавцом -->
-<div class="chat-widget" id="chat-widget">
-    <button class="chat-launcher" id="chat-launcher" onclick="toggleChat()" aria-label="Чат с продавцом">
-        <svg class="chat-ico chat-ico--open" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <svg class="chat-ico chat-ico--close" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        <span class="chat-unread" id="chat-unread" style="display:none;">0</span>
-    </button>
-    <div class="chat-window" id="chat-window">
-        <div class="chat-head">
-            <div>
-                <strong>Чат с продавцом</strong>
-                <div class="chat-status" id="chat-status">онлайн</div>
-            </div>
-            <button class="chat-head-close" onclick="toggleChat(false)">✕</button>
-        </div>
-        <div class="chat-body" id="chat-body"></div>
-        <form class="chat-form" id="chat-form" autocomplete="off">
-            <input type="text" id="chat-input" placeholder="Напишите сообщение..." autocomplete="off">
-            <button type="submit" aria-label="Отправить">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
-        </form>
-        <div class="chat-auth-note" id="chat-auth-note">Войдите, чтобы написать продавцу</div>
-    </div>
-</div>
+<footer><p>&copy; 2026 Vamp Shmot</p></footer>
 
 <script src="script.js"></script>
 

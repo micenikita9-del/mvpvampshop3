@@ -63,11 +63,6 @@ if (!process.env.JWT_SECRET) {
 
 const db = new DatabaseSync(path.join(__dirname, 'database.db'));
 
-// === MIGRATIONS: sku + specs (auto) ===
-try { db.exec('ALTER TABLE products ADD COLUMN sku TEXT'); } catch(e){}
-try { db.exec("ALTER TABLE products ADD COLUMN specs TEXT DEFAULT '[]'"); } catch(e){}
-try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku ON products(sku)'); } catch(e){}
-
 /* ============================================================
    ТАБЛИЦЫ
    ============================================================ */
@@ -768,14 +763,13 @@ app.get('/api/chats/:id/stream', (req, res) => {
     });
     res.flushHeaders && res.flushHeaders();
     res.write('retry: 3000\n\n');
-    res.write('event: connected\ndata: {"ok":true}\n\n');
 
     const chatId = parseInt(req.params.id, 10);
     if (!sseClients.has(chatId)) sseClients.set(chatId, new Set());
     sseClients.get(chatId).add(res);
 
-    // heartbeat каждые 15 сек, чтобы соединение не рвалось
-    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 15000);
+    // heartbeat
+    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 25000);
 
     req.on('close', () => {
         clearInterval(hb);
@@ -832,57 +826,14 @@ app.post('/api/orders', authMiddleware, (req, res) => {
     const { customer_name, phone, address, comment, items, total } = req.body;
     if (!customer_name || !phone || !address) return res.status(400).json({ error: 'Заполните имя, телефон и адрес' });
     if (!items || !items.length) return res.status(400).json({ error: 'Корзина пуста' });
-    // Обогащаем каждый item картинкой и брендом из products
-    const enrichedItems = items.map(function(it){
-        try {
-            const prod = db.prepare('SELECT images, brand_id, name, price FROM products WHERE id = ?').get(it.id);
-            if (prod) {
-                let imgs = [];
-                try { imgs = JSON.parse(prod.images || '[]'); } catch(e){}
-                let brandName = null;
-                if (prod.brand_id) {
-                    const b = db.prepare('SELECT name FROM brands WHERE id = ?').get(prod.brand_id);
-                    if (b) brandName = b.name;
-                }
-                return Object.assign({}, it, {
-                    img: it.img || imgs[0] || '',
-                    images: imgs,
-                    brand: brandName,
-                    name: it.name || prod.name
-                });
-            }
-        } catch(e){}
-        return it;
-    });
     const r = db.prepare(`INSERT INTO orders (user_id, customer_name, phone, address, comment, items, total, status)
                           VALUES (?, ?, ?, ?, ?, ?, ?, 'new')`)
-                .run(req.user.id, customer_name, phone, address, comment || '', JSON.stringify(enrichedItems), total || 0);
+                .run(req.user.id, customer_name, phone, address, comment || '', JSON.stringify(items), total || 0);
     res.json({ id: r.lastInsertRowid, ok: true });
 });
 app.get('/api/orders/my', authMiddleware, (req, res) => {
     const rows = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(req.user.id);
-    rows.forEach(o => {
-        try { o.items = JSON.parse(o.items || '[]'); } catch { o.items = []; }
-        // Для старых заказов — подтянуть картинку, если её нет
-        o.items = (o.items || []).map(function(it){
-            if (!it.img && it.id) {
-                try {
-                    const prod = db.prepare('SELECT images, brand_id FROM products WHERE id = ?').get(it.id);
-                    if (prod) {
-                        let imgs = [];
-                        try { imgs = JSON.parse(prod.images || '[]'); } catch(e){}
-                        it.img = imgs[0] || '';
-                        it.images = imgs;
-                        if (prod.brand_id) {
-                            const b = db.prepare('SELECT name FROM brands WHERE id = ?').get(prod.brand_id);
-                            if (b) it.brand = b.name;
-                        }
-                    }
-                } catch(e){}
-            }
-            return it;
-        });
-    });
+    rows.forEach(o => { try { o.items = JSON.parse(o.items || '[]'); } catch { o.items = []; } });
     res.json(rows);
 });
 app.get('/api/orders', authMiddleware, adminMiddleware, (req, res) => {

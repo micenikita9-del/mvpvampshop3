@@ -768,14 +768,13 @@ app.get('/api/chats/:id/stream', (req, res) => {
     });
     res.flushHeaders && res.flushHeaders();
     res.write('retry: 3000\n\n');
-    res.write('event: connected\ndata: {"ok":true}\n\n');
 
     const chatId = parseInt(req.params.id, 10);
     if (!sseClients.has(chatId)) sseClients.set(chatId, new Set());
     sseClients.get(chatId).add(res);
 
-    // heartbeat каждые 15 сек, чтобы соединение не рвалось
-    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 15000);
+    // heartbeat
+    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 25000);
 
     req.on('close', () => {
         clearInterval(hb);

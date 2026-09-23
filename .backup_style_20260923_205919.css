@@ -2652,29 +2652,3 @@ body.admin-chats-active #admin-chats.admin-section {
   #admin-chats .chat-msg { max-width: 85% !important; }
 }
 /* === ADMIN CHAT — FINAL v7 (end) === */
-
-/* === CHAT EMPTY COMPACT (start) === */
-/* Плашка "Выберите диалог слева" — компактная, не растягивается */
-#admin-chats .admin-chats-room__empty {
-  flex: 0 0 auto !important;
-  padding: 40px 20px !important;
-  min-height: auto !important;
-  max-height: 240px !important;
-  gap: 8px !important;
-  justify-content: center !important;
-  border-bottom: 1px solid #f0f0f0 !important;
-}
-#admin-chats .admin-chats-room__empty > div:first-child {
-  font-size: 32px !important;
-  opacity: .35 !important;
-}
-#admin-chats .admin-chats-room__empty p {
-  font-size: 13px !important;
-  color: #aaa !important;
-}
-/* Если диалог выбран — заглушка скрывается, чат занимает всё */
-#admin-chats .admin-chats-room__active ~ .admin-chats-room__empty,
-#admin-chats .admin-chats-room__empty[style*="display: none"] {
-  display: none !important;
-}
-/* === CHAT EMPTY COMPACT (end) === */

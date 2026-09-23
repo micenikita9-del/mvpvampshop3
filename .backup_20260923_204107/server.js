@@ -63,11 +63,6 @@ if (!process.env.JWT_SECRET) {
 
 const db = new DatabaseSync(path.join(__dirname, 'database.db'));
 
-// === MIGRATIONS: sku + specs (auto) ===
-try { db.exec('ALTER TABLE products ADD COLUMN sku TEXT'); } catch(e){}
-try { db.exec("ALTER TABLE products ADD COLUMN specs TEXT DEFAULT '[]'"); } catch(e){}
-try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku ON products(sku)'); } catch(e){}
-
 /* ============================================================
    ТАБЛИЦЫ
    ============================================================ */
@@ -146,23 +141,6 @@ db.exec(`
         rating INTEGER DEFAULT 5,
         text TEXT NOT NULL,
         created_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER UNIQUE NOT NULL,
-        user_name TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        last_message_at TEXT DEFAULT (datetime('now'))
-    );
-    CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER NOT NULL,
-        sender_id INTEGER NOT NULL,
-        sender_role TEXT DEFAULT 'user',
-        text TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now')),
-        read_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS contacts (
@@ -670,129 +648,6 @@ app.get('/api/products/:id/related', (req, res) => {
 });
 /* === RELATED (end) === */
 /* === REVIEWS (end) === */
-/* === CHAT (SSE) (start) === */
-// Хранилище SSE-клиентов: Map<chatId, Set<res>>
-const sseClients = new Map();
-
-function sseSend(chatId, payload) {
-    const set = sseClients.get(chatId);
-    if (!set) return;
-    const data = 'data: ' + JSON.stringify(payload) + '\n\n';
-    for (const res of set) {
-        try { res.write(data); } catch (e) { set.delete(res); }
-    }
-}
-
-// Найти или создать чат текущего пользователя
-function getOrCreateChat(user) {
-    let chat = db.prepare('SELECT * FROM chats WHERE user_id = ?').get(user.id);
-    if (!chat) {
-        const r = db.prepare('INSERT INTO chats (user_id, user_name) VALUES (?, ?)')
-                    .run(user.id, user.name || user.email || 'Пользователь');
-        chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(r.lastInsertRowid);
-    }
-    return chat;
-}
-
-// Мой чат
-app.get('/api/chats/me', authMiddleware, (req, res) => {
-    const chat = getOrCreateChat(req.user);
-    const unread = db.prepare('SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_role != ? AND (read_at IS NULL)')
-                     .get(chat.id, req.user.role === 'admin' ? 'admin' : 'user').c;
-    res.json({ chat, unread });
-});
-
-// Все чаты (только админ)
-app.get('/api/chats', authMiddleware, adminMiddleware, (req, res) => {
-    const rows = db.prepare(`
-        SELECT c.*,
-          (SELECT COUNT(*) FROM messages m WHERE m.chat_id = c.id AND m.sender_role = 'user' AND m.read_at IS NULL) as unread,
-          (SELECT text FROM messages m WHERE m.chat_id = c.id ORDER BY id DESC LIMIT 1) as last_text
-        FROM chats c
-        ORDER BY c.last_message_at DESC
-    `).all();
-    res.json(rows);
-});
-
-// Сообщения чата
-app.get('/api/chats/:id/messages', authMiddleware, (req, res) => {
-    const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(req.params.id);
-    if (!chat) return res.status(404).json({ error: 'Чат не найден' });
-    if (req.user.role !== 'admin' && chat.user_id !== req.user.id) {
-        return res.status(403).json({ error: 'Нет доступа' });
-    }
-    const rows = db.prepare('SELECT * FROM messages WHERE chat_id = ? ORDER BY id ASC').all(req.params.id);
-    // отметить прочитанными чужие
-    const myRole = req.user.role === 'admin' ? 'admin' : 'user';
-    db.prepare("UPDATE messages SET read_at = datetime('now') WHERE chat_id = ? AND sender_role != ? AND read_at IS NULL")
-      .run(req.params.id, myRole);
-    res.json(rows);
-});
-
-// Отправить сообщение
-app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
-    const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(req.params.id);
-    if (!chat) return res.status(404).json({ error: 'Чат не найден' });
-    if (req.user.role !== 'admin' && chat.user_id !== req.user.id) {
-        return res.status(403).json({ error: 'Нет доступа' });
-    }
-    const text = (req.body.text || '').trim();
-    if (!text) return res.status(400).json({ error: 'Пустое сообщение' });
-    const myRole = req.user.role === 'admin' ? 'admin' : 'user';
-    const r = db.prepare('INSERT INTO messages (chat_id, sender_id, sender_role, text) VALUES (?, ?, ?, ?)')
-                .run(req.params.id, req.user.id, myRole, text);
-    db.prepare("UPDATE chats SET last_message_at = datetime('now') WHERE id = ?").run(req.params.id);
-    const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(r.lastInsertRowid);
-    // Разослать всем подписчикам чата
-    sseSend(req.params.id, { type: 'message', message: msg });
-    res.json(msg);
-});
-
-// SSE-поток
-app.get('/api/chats/:id/stream', (req, res) => {
-    const token = req.query.token;
-    if (!token) return res.status(401).end();
-    let user;
-    try {
-        user = require('jsonwebtoken').verify(token, JWT_SECRET);
-    } catch (e) { return res.status(401).end(); }
-    const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(req.params.id);
-    if (!chat) return res.status(404).end();
-    if (user.role !== 'admin' && chat.user_id !== user.id) return res.status(403).end();
-
-    res.set({
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no'
-    });
-    res.flushHeaders && res.flushHeaders();
-    res.write('retry: 3000\n\n');
-    res.write('event: connected\ndata: {"ok":true}\n\n');
-
-    const chatId = parseInt(req.params.id, 10);
-    if (!sseClients.has(chatId)) sseClients.set(chatId, new Set());
-    sseClients.get(chatId).add(res);
-
-    // heartbeat каждые 15 сек, чтобы соединение не рвалось
-    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch(e){} }, 15000);
-
-    req.on('close', () => {
-        clearInterval(hb);
-        const set = sseClients.get(chatId);
-        if (set) set.delete(res);
-    });
-});
-
-// Плавающая кнопка чата — количество непрочитанных
-app.get('/api/chats/me/unread', authMiddleware, (req, res) => {
-    const chat = db.prepare('SELECT * FROM chats WHERE user_id = ?').get(req.user.id);
-    if (!chat) return res.json({ unread: 0 });
-    const unread = db.prepare("SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_role = 'admin' AND read_at IS NULL")
-                     .get(chat.id).c;
-    res.json({ unread });
-});
-/* === CHAT (SSE) (end) === */
 app.delete('/api/products/:id', authMiddleware, adminMiddleware, (req, res) => {
     const r = db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
     if (r.changes === 0) return res.status(404).json({ error: 'Не найден' });
@@ -832,57 +687,14 @@ app.post('/api/orders', authMiddleware, (req, res) => {
     const { customer_name, phone, address, comment, items, total } = req.body;
     if (!customer_name || !phone || !address) return res.status(400).json({ error: 'Заполните имя, телефон и адрес' });
     if (!items || !items.length) return res.status(400).json({ error: 'Корзина пуста' });
-    // Обогащаем каждый item картинкой и брендом из products
-    const enrichedItems = items.map(function(it){
-        try {
-            const prod = db.prepare('SELECT images, brand_id, name, price FROM products WHERE id = ?').get(it.id);
-            if (prod) {
-                let imgs = [];
-                try { imgs = JSON.parse(prod.images || '[]'); } catch(e){}
-                let brandName = null;
-                if (prod.brand_id) {
-                    const b = db.prepare('SELECT name FROM brands WHERE id = ?').get(prod.brand_id);
-                    if (b) brandName = b.name;
-                }
-                return Object.assign({}, it, {
-                    img: it.img || imgs[0] || '',
-                    images: imgs,
-                    brand: brandName,
-                    name: it.name || prod.name
-                });
-            }
-        } catch(e){}
-        return it;
-    });
     const r = db.prepare(`INSERT INTO orders (user_id, customer_name, phone, address, comment, items, total, status)
                           VALUES (?, ?, ?, ?, ?, ?, ?, 'new')`)
-                .run(req.user.id, customer_name, phone, address, comment || '', JSON.stringify(enrichedItems), total || 0);
+                .run(req.user.id, customer_name, phone, address, comment || '', JSON.stringify(items), total || 0);
     res.json({ id: r.lastInsertRowid, ok: true });
 });
 app.get('/api/orders/my', authMiddleware, (req, res) => {
     const rows = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(req.user.id);
-    rows.forEach(o => {
-        try { o.items = JSON.parse(o.items || '[]'); } catch { o.items = []; }
-        // Для старых заказов — подтянуть картинку, если её нет
-        o.items = (o.items || []).map(function(it){
-            if (!it.img && it.id) {
-                try {
-                    const prod = db.prepare('SELECT images, brand_id FROM products WHERE id = ?').get(it.id);
-                    if (prod) {
-                        let imgs = [];
-                        try { imgs = JSON.parse(prod.images || '[]'); } catch(e){}
-                        it.img = imgs[0] || '';
-                        it.images = imgs;
-                        if (prod.brand_id) {
-                            const b = db.prepare('SELECT name FROM brands WHERE id = ?').get(prod.brand_id);
-                            if (b) it.brand = b.name;
-                        }
-                    }
-                } catch(e){}
-            }
-            return it;
-        });
-    });
+    rows.forEach(o => { try { o.items = JSON.parse(o.items || '[]'); } catch { o.items = []; } });
     res.json(rows);
 });
 app.get('/api/orders', authMiddleware, adminMiddleware, (req, res) => {

@@ -623,21 +623,10 @@ async function openAdmin() {
 }
 function switchAdminTab(tab, btn) {
     document.querySelectorAll('.admin-tab').forEach(function(b) { b.classList.remove('active'); });
-    if (btn) btn.classList.add('active');
+    btn.classList.add('active');
     document.querySelectorAll('.admin-section').forEach(function(s) { s.classList.remove('active'); });
     const sec = document.getElementById('admin-' + tab);
     if (sec) sec.classList.add('active');
-
-    // Снимаем ограничения admin-page когда открыт чат
-    if (tab === 'chats') {
-        document.body.classList.add('admin-chats-active');
-    } else {
-        document.body.classList.remove('admin-chats-active');
-    }
-    // Подгружаем чаты при переходе
-    if (tab === 'chats' && typeof loadAdminChats === 'function') {
-        try { loadAdminChats(); } catch(e){}
-    }
 }
 function renderAdminProducts() {
     const tbody = document.getElementById('admin-products-body');
@@ -1764,6 +1753,18 @@ async function loadChatMessages(){
   } catch (e){}
 }
 
+function renderChatMessage(m){
+  const meId = currentUser && currentUser.id;
+  const isMe = m.sender_id === meId;
+  const time = new Date((m.created_at || '').replace(' ','T') + 'Z')
+    .toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  const author = m.sender_role === 'admin' ? 'Продавец' : (m.user_name || '');
+  return '<div class="chat-msg ' + (isMe ? 'chat-msg--me' : 'chat-msg--them') + '">' +
+    (!isMe && author ? '<div class="chat-msg__author">' + author + '</div>' : '') +
+    '<div>' + escapeHtml(m.text) + '</div>' +
+    '<span class="chat-msg__time">' + time + '</span>' +
+  '</div>';
+}
 
 function escapeHtml(s){
   return String(s == null ? '' : s)
@@ -1771,6 +1772,36 @@ function escapeHtml(s){
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+function connectChatSSE(){
+  if (!chatState.chatId || chatState.es) return;
+  const url = '/api/chats/' + chatState.chatId + '/stream?token=' + encodeURIComponent(authToken);
+  const es = new EventSource(url);
+  es.onmessage = function(ev){
+    try {
+      const payload = JSON.parse(ev.data);
+      if (payload.type === 'message'){
+        const body = document.getElementById('chat-body');
+        if (body){
+          body.insertAdjacentHTML('beforeend', renderChatMessage(payload.message));
+          body.scrollTop = body.scrollHeight;
+        }
+        if (!chatState.open && payload.message.sender_id !== (currentUser && currentUser.id)){
+          chatState.unread++;
+          updateChatUnread();
+        } else if (chatState.open) {
+          // отметить прочитанным
+          api('/chats/' + chatState.chatId + '/messages').catch(function(){});
+        }
+      }
+    } catch(e){}
+  };
+  es.onerror = function(){
+    es.close();
+    chatState.es = null;
+    setTimeout(connectChatSSE, 3000);
+  };
+  chatState.es = es;
+}
 
 window.toggleChat = async function(force){
   const win = document.getElementById('chat-window');
@@ -1808,6 +1839,22 @@ window.openChatForOrder = function(orderId){
   toggleChat(true);
 };
 
+window.sendChatMessage = async function(ev){
+  ev.preventDefault();
+  const input = document.getElementById('chat-input');
+  if (!input || !chatState.chatId) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    await api('/chats/' + chatState.chatId + '/messages', {
+      method: 'POST',
+      body: JSON.stringify({ text: text })
+    });
+  } catch (e){
+    showToast('Ошибка: ' + (e.message || e), 'error');
+  }
+};
 
 /* Загрузка непрочитанных при старте */
 document.addEventListener('DOMContentLoaded', function(){
@@ -1914,8 +1961,58 @@ async function loadAdminChatMessages(chatId){
   } catch(e){ console.error(e); }
 }
 
+function renderAdminChatMessage(m){
+  const meId = currentUser && currentUser.id;
+  const isMe = m.sender_id === meId || m.sender_role === 'admin';
+  const time = new Date((m.created_at || '').replace(' ','T') + 'Z').toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  return '<div class="chat-msg ' + (isMe ? 'chat-msg--me' : 'chat-msg--them') + '">' +
+    '<div>' + escapeHtml(m.text) + '</div>' +
+    '<span class="chat-msg__time">' + time + '</span>' +
+  '</div>';
+}
 
+function connectAdminChatSSE(chatId){
+  if (!authToken) return;
+  const url = '/api/chats/' + chatId + '/stream?token=' + encodeURIComponent(authToken);
+  const es = new EventSource(url);
+  es.onmessage = function(ev){
+    try {
+      const payload = JSON.parse(ev.data);
+      if (payload.type === 'message'){
+        const body = document.getElementById('admin-chat-body');
+        if (body){
+          body.insertAdjacentHTML('beforeend', renderAdminChatMessage(payload.message));
+          body.scrollTop = body.scrollHeight;
+        }
+        // обновить превью в списке
+        const chat = adminChatState.chats.find(function(c){ return c.id === chatId; });
+        if (chat){ chat.last_text = payload.message.text; chat.last_message_at = payload.message.created_at; }
+        renderAdminChatsList();
+      }
+    } catch(e){}
+  };
+  es.onerror = function(){
+    es.close();
+    adminChatState.es = null;
+    setTimeout(function(){ if (adminChatState.activeChatId === chatId) connectAdminChatSSE(chatId); }, 3000);
+  };
+  adminChatState.es = es;
+}
 
+async function sendAdminChatMessage(ev){
+  ev.preventDefault();
+  const input = document.getElementById('admin-chat-input');
+  if (!input || !adminChatState.activeChatId) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try {
+    await api('/chats/' + adminChatState.activeChatId + '/messages', {
+      method: 'POST',
+      body: JSON.stringify({ text: text })
+    });
+  } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
+}
 
 // Обёртка switchAdminTab — при переходе на chats загружаем список
 (function(){
@@ -1944,429 +2041,5 @@ document.addEventListener('DOMContentLoaded', function(){
 
 window.loadAdminChats = loadAdminChats;
 window.openAdminChat = openAdminChat;
+window.sendAdminChatMessage = sendAdminChatMessage;
 /* === ADMIN CHATS (end) === */
-
-/* === CHAT FIX (start) === */
-
-/* Универсальный рендер: автор + время + разные цвета */
-function renderChatMsg(m, viewerRole){
-  const meId = currentUser && currentUser.id;
-  const isMine = m.sender_id === meId;
-  const isAdminMsg = m.sender_role === 'admin';
-
-  // Кто автор (для подписи)
-  let author = '';
-  if (isMine) author = 'Вы';
-  else if (viewerRole === 'admin') author = 'Клиент';
-  else author = 'Продавец';
-
-  // Стиль
-  const cls = isMine ? 'chat-msg--me' : 'chat-msg--them';
-
-  const time = new Date((m.created_at || '').replace(' ','T') + 'Z')
-    .toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
-
-  return '<div class="chat-msg ' + cls + '">' +
-    '<div class="chat-msg__author">' + escapeHtml(author) + '</div>' +
-    '<div>' + escapeHtml(m.text) + '</div>' +
-    '<span class="chat-msg__time">' + time + '</span>' +
-  '</div>';
-}
-
-/* Заменить renderChatMessage и renderAdminChatMessage на общий */
-window.renderChatMessage = function(m){ return renderChatMsg(m, 'user'); };
-window.renderAdminChatMessage = function(m){ return renderChatMsg(m, 'admin'); };
-
-/* === КЛИЕНТ: SSE + обновление === */
-function connectChatSSE(){
-  if (!chatState.chatId || !authToken) return;
-  if (chatState.es){ try { chatState.es.close(); } catch(e){} }
-  const url = '/api/chats/' + chatState.chatId + '/stream?token=' + encodeURIComponent(authToken);
-  const es = new EventSource(url);
-  es.onmessage = function(ev){
-    try {
-      const p = JSON.parse(ev.data);
-      if (p.type === 'message'){
-        addChatMessageToUI(p.message, 'user');
-      }
-    } catch(e){}
-  };
-  es.onerror = function(){
-    es.close();
-    chatState.es = null;
-    setTimeout(function(){ if (authToken) connectChatSSE(); }, 3000);
-  };
-  chatState.es = es;
-}
-
-/* Добавляем сообщение в UI клиента */
-function addChatMessageToUI(m, role){
-  const body = document.getElementById('chat-body');
-  if (!body) return;
-  // защита от дубликатов
-  if (body.querySelector('[data-msg-id="' + m.id + '"]')) return;
-  const html = '<div data-msg-id="' + m.id + '">' + renderChatMsg(m, role) + '</div>';
-  body.insertAdjacentHTML('beforeend', html);
-  body.scrollTop = body.scrollHeight;
-
-  const isMine = currentUser && m.sender_id === currentUser.id;
-  if (!isMine && !chatState.open){
-    chatState.unread++;
-    updateChatUnread();
-    playChatBeep();
-  }
-}
-
-/* === АДМИН: SSE + обновление === */
-function connectAdminChatSSE(chatId){
-  if (!authToken) return;
-  if (adminChatState.es){ try { adminChatState.es.close(); } catch(e){} }
-  const url = '/api/chats/' + chatId + '/stream?token=' + encodeURIComponent(authToken);
-  const es = new EventSource(url);
-  es.onmessage = function(ev){
-    try {
-      const p = JSON.parse(ev.data);
-      if (p.type === 'message'){
-        addAdminChatMessageToUI(p.message);
-        const chat = adminChatState.chats.find(function(c){ return c.id === chatId; });
-        if (chat){ chat.last_text = p.message.text; chat.last_message_at = p.message.created_at; }
-        renderAdminChatsList();
-      }
-    } catch(e){}
-  };
-  es.onerror = function(){
-    es.close();
-    adminChatState.es = null;
-    setTimeout(function(){
-      if (adminChatState.activeChatId === chatId) connectAdminChatSSE(chatId);
-    }, 3000);
-  };
-  adminChatState.es = es;
-}
-
-function addAdminChatMessageToUI(m){
-  const body = document.getElementById('admin-chat-body');
-  if (!body) return;
-  if (body.querySelector('[data-msg-id="' + m.id + '"]')) return;
-  const html = '<div data-msg-id="' + m.id + '">' + renderChatMsg(m, 'admin') + '</div>';
-  body.insertAdjacentHTML('beforeend', html);
-  body.scrollTop = body.scrollHeight;
-
-  const isMine = currentUser && m.sender_id === currentUser.id;
-  if (!isMine){
-    const chat = adminChatState.chats.find(function(c){ return c.id === adminChatState.activeChatId; });
-    if (chat && chat.id !== adminChatState.activeChatId){ chat.unread = (chat.unread||0)+1; updateAdminChatBadge(); }
-    playChatBeep();
-  }
-}
-
-/* Простой звук "бип" через Web Audio (без файла) */
-function playChatBeep(){
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 880;
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
-    o.start();
-    o.stop(ctx.currentTime + 0.22);
-  } catch(e){}
-}
-
-/* === Отправка сообщения (клиент) === */
-/* === Отправка сообщения (админ) === */
-/* === Обеспечиваем переподключение SSE при открытии чата === */
-(function(){
-  // клиент
-  if (typeof window.toggleChat === 'function' && !window.__toggleChatWrapped){
-    const orig = window.toggleChat;
-    window.toggleChat = async function(force){
-      await orig.apply(this, arguments);
-      if (chatState.open && chatState.chatId){
-        connectChatSSE();
-      }
-    };
-    window.__toggleChatWrapped = true;
-  }
-  // админ
-  if (typeof window.openAdminChat === 'function' && !window.__openAdminChatWrapped){
-    const orig = window.openAdminChat;
-    window.openAdminChat = async function(id){
-      await orig.apply(this, arguments);
-      connectAdminChatSSE(id);
-    };
-    window.__openAdminChatWrapped = true;
-  }
-})();
-
-/* === Дополнительный fallback: опрос каждые 4 сек === */
-setInterval(function(){
-  // клиент
-  if (chatState.open && chatState.chatId){
-    api('/chats/' + chatState.chatId + '/messages').then(function(list){
-      const body = document.getElementById('chat-body');
-      if (!body) return;
-      // если пришло больше, чем отображено — перерисуем
-      const rendered = body.querySelectorAll('[data-msg-id]').length;
-      if (list.length !== rendered){
-        body.innerHTML = list.length ? list.map(function(m){
-          return '<div data-msg-id="' + m.id + '">' + renderChatMsg(m, 'user') + '</div>';
-        }).join('') : '<div style="text-align:center;color:#999;font-size:13px;padding:20px;">Напишите первым 👋</div>';
-        body.scrollTop = body.scrollHeight;
-      }
-    }).catch(function(){});
-  }
-  // админ
-  const adminActive = document.getElementById('admin-chats-active');
-  if (adminActive && adminActive.style.display !== 'none' && adminChatState.activeChatId){
-    api('/chats/' + adminChatState.activeChatId + '/messages').then(function(list){
-      const body = document.getElementById('admin-chat-body');
-      if (!body) return;
-      const rendered = body.querySelectorAll('[data-msg-id]').length;
-      if (list.length !== rendered){
-        body.innerHTML = list.length ? list.map(function(m){
-          return '<div data-msg-id="' + m.id + '">' + renderChatMsg(m, 'admin') + '</div>';
-        }).join('') : '<div class="admin-chats-empty">Нет сообщений</div>';
-        body.scrollTop = body.scrollHeight;
-      }
-    }).catch(function(){});
-  }
-}, 4000);
-
-/* === Уведомление о новых чатах админу (раз в 10 сек) === */
-setInterval(function(){
-  if (currentUser && currentUser.role === 'admin'){
-    loadAdminChats().catch(function(){});
-  }
-}, 10000);
-
-/* Переписываем loadAdminChatMessages и loadChatMessages, чтобы ставить data-msg-id */
-window.loadAdminChatMessages = async function(chatId){
-  const body = document.getElementById('admin-chat-body');
-  if (!body) return;
-  try {
-    const list = await api('/chats/' + chatId + '/messages');
-    body.innerHTML = list.length ? list.map(function(m){
-      return '<div data-msg-id="' + m.id + '">' + renderChatMsg(m, 'admin') + '</div>';
-    }).join('') : '<div class="admin-chats-empty">Нет сообщений</div>';
-    body.scrollTop = body.scrollHeight;
-    const chat = adminChatState.chats.find(function(c){ return c.id === chatId; });
-    if (chat){ chat.unread = 0; updateAdminChatBadge(); }
-    renderAdminChatsList();
-  } catch(e){ console.error(e); }
-};
-
-window.loadChatMessages = async function(){
-  if (!chatState.chatId) return;
-  const body = document.getElementById('chat-body');
-  if (!body) return;
-  try {
-    const list = await api('/chats/' + chatState.chatId + '/messages');
-    body.innerHTML = list.length ? list.map(function(m){
-      return '<div data-msg-id="' + m.id + '">' + renderChatMsg(m, 'user') + '</div>';
-    }).join('') : '<div style="text-align:center;color:#999;font-size:13px;padding:20px;">Напишите первым 👋</div>';
-    body.scrollTop = body.scrollHeight;
-    chatState.unread = 0;
-    updateChatUnread();
-  } catch(e){}
-};
-
-/* Экспорт */
-window.connectChatSSE = connectChatSSE;
-window.connectAdminChatSSE = connectAdminChatSSE;
-window.renderChatMsg = renderChatMsg;
-/* === CHAT FIX (end) === */
-
-/* === CHAT SEND — FINAL (start) === */
-(function(){
-  function getTextAndClear(inputId){
-    const el = document.getElementById(inputId);
-    if (!el) return null;
-    const text = (el.value || '').trim();
-    if (!text) return null;
-    el.value = '';
-    return text;
-  }
-
-  async function doSendClient(text){
-    if (!chatState.chatId) { try { await loadMyChat(); } catch(e){} }
-    if (!chatState.chatId) { showToast('Чат не найден', 'error'); return; }
-    try {
-      const msg = await api('/chats/' + chatState.chatId + '/messages', {
-        method: 'POST',
-        body: JSON.stringify({ text: text })
-      });
-      if (typeof addChatMessageToUI === 'function') addChatMessageToUI(msg, 'user');
-    } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
-  }
-
-  async function doSendAdmin(text){
-    if (!adminChatState.activeChatId) { showToast('Выберите диалог', 'error'); return; }
-    try {
-      const msg = await api('/chats/' + adminChatState.activeChatId + '/messages', {
-        method: 'POST',
-        body: JSON.stringify({ text: text })
-      });
-      if (typeof addAdminChatMessageToUI === 'function') addAdminChatMessageToUI(msg);
-    } catch(e){ showToast('Ошибка: ' + (e.message || e), 'error'); }
-  }
-
-  // Единый обработчик submit — preventDefault ПЕРВЫМ делом
-  function onClientSubmit(e){
-    e.preventDefault();
-    e.stopPropagation();
-    const text = getTextAndClear('chat-input');
-    if (text) doSendClient(text);
-    return false;
-  }
-  function onAdminSubmit(e){
-    e.preventDefault();
-    e.stopPropagation();
-    const text = getTextAndClear('admin-chat-input');
-    if (text) doSendAdmin(text);
-    return false;
-  }
-
-  // Привязка
-  function bind(){
-    const cf = document.getElementById('chat-form');
-    if (cf && !cf.__chatBound){
-      cf.addEventListener('submit', onClientSubmit);
-      cf.__chatBound = true;
-      console.log('[chat] форма клиента привязана');
-    }
-    const af = document.getElementById('admin-chat-form') ||
-               document.querySelector('form.admin-chats-room__form');
-    if (af){
-      if (!af.id) af.id = 'admin-chat-form';
-      if (!af.__chatBound){
-        af.addEventListener('submit', onAdminSubmit);
-        af.__chatBound = true;
-        console.log('[chat] форма админа привязана');
-      }
-    }
-    // Enter в полях
-    const ci = document.getElementById('chat-input');
-    if (ci && !ci.__enterBound){
-      ci.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey){
-          e.preventDefault();
-          const text = getTextAndClear('chat-input');
-          if (text) doSendClient(text);
-        }
-      });
-      ci.__enterBound = true;
-    }
-    const ai = document.getElementById('admin-chat-input');
-    if (ai && !ai.__enterBound){
-      ai.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && !e.shiftKey){
-          e.preventDefault();
-          const text = getTextAndClear('admin-chat-input');
-          if (text) doSendAdmin(text);
-        }
-      });
-      ai.__enterBound = true;
-    }
-  }
-
-  // Экспорт (для onclick в HTML, если где-то остался)
-  window.sendChatMessage = function(ev){
-    if (ev && ev.preventDefault) ev.preventDefault();
-    const text = getTextAndClear('chat-input');
-    if (text) doSendClient(text);
-    return false;
-  };
-  window.sendAdminChatMessage = function(ev){
-    if (ev && ev.preventDefault) ev.preventDefault();
-    const text = getTextAndClear('admin-chat-input');
-    if (text) doSendAdmin(text);
-    return false;
-  };
-
-  // Привязываем сразу + периодически
-  document.addEventListener('DOMContentLoaded', function(){
-    bind();
-    setTimeout(bind, 300);
-    setTimeout(bind, 1000);
-    setTimeout(bind, 2500);
-  });
-
-  // Периодически (на случай, если формы появляются позже)
-  setInterval(bind, 3000);
-
-  window.bindChatForms = bind;
-})();
-/* === CHAT SEND — FINAL (end) === */
-
-
-/* === ADMIN CHATS — класс на body для снятия ограничений === */
-(function(){
-  if (typeof window.switchAdminTab === 'function' && !window.__switchAdminTabV6){
-    const orig = window.switchAdminTab;
-    window.switchAdminTab = function(tab, btn){
-      const r = orig.apply(this, arguments);
-      if (tab === 'chats'){
-        document.body.classList.add('admin-chats-active');
-      } else {
-        document.body.classList.remove('admin-chats-active');
-      }
-      return r;
-    };
-    window.__switchAdminTabV6 = true;
-  }
-})();
-window.__adminChatsClassToggle = true;
-
-/* === Убираем "Войдите" для админа в его чате === */
-(function(){
-  const origLoadMyChat = window.loadMyChat;
-  if (typeof origLoadMyChat === 'function' && !window.__loadMyChatV6){
-    window.loadMyChat = async function(){
-      const r = await origLoadMyChat.apply(this, arguments);
-      return r;
-    };
-    window.__loadMyChatV6 = true;
-  }
-})();
-
-/* === В чате админки не показываем "chat-widget--locked" === */
-(function(){
-  const origToggle = window.toggleChat;
-  if (typeof origToggle === 'function' && !window.__toggleChatV6){
-    window.toggleChat = async function(force){
-      const r = await origToggle.apply(this, arguments);
-      // если это админ — никогда не ставим locked
-      const widget = document.getElementById('chat-widget');
-      if (widget && currentUser && currentUser.role === 'admin'){
-        widget.classList.remove('chat-widget--locked');
-      }
-      return r;
-    };
-    window.__toggleChatV6 = true;
-  }
-})();
-
-/* === Скрываем .chat-widget--locked когда пользователь залогинен === */
-setInterval(function(){
-  const widget = document.getElementById('chat-widget');
-  if (!widget) return;
-  if (authToken && currentUser){
-    widget.classList.remove('chat-widget--locked');
-  }
-}, 1000);
-
-/* Снимаем admin-chats-active при уходе с админки */
-(function(){
-  if (typeof window.showCatalog === 'function' && !window.__forceAdminChatsOff){
-    const orig = window.showCatalog;
-    window.showCatalog = function(){
-      document.body.classList.remove('admin-chats-active');
-      return orig.apply(this, arguments);
-    };
-    window.__forceAdminChatsOff = true;
-  }
-})();
